@@ -1,0 +1,44 @@
+{
+    "name": "my-ai-chat",
+    "version": "0.1.0",
+    "private": true,
+    "scripts": {
+        "dev": "next dev",
+        "build": "next build",
+        "start": "next start",
+        "lint": "eslint"
+    },
+    "dependencies": {
+        "@ai-sdk/deepseek": "^2.0.26",
+        "@ai-sdk/openai": "^3.0.47",
+        "@ai-sdk/react": "^3.0.136",
+        "@langchain/community": "^1.1.25",
+        "@langchain/core": "^1.1.36",
+        "@langchain/openai": "^1.3.0",
+        "@langchain/pinecone": "^1.0.1",
+        "@modelcontextprotocol/sdk": "^1.29.0",
+        "@pinecone-database/pinecone": "^5.1.2",
+        "@tavily/core": "^0.7.2",
+        "ai": "^6.0.134",
+        "dotenv": "^16.4.5",
+        "langchain": "^1.2.37",
+        "next": "16.2.1",
+        "react": "19.2.4",
+        "react-dom": "19.2.4",
+        "react-markdown": "^10.1.0",
+        "rehype-highlight": "^7.0.2",
+        "remark-gfm": "^4.0.1"
+    },
+    "devDependencies": {
+        "@tailwindcss/postcss": "^4",
+        "@tailwindcss/typography": "^0.5.19",
+        "@types/node": "^20",
+        "@types/react": "^19",
+        "@types/react-dom": "^19",
+        "babel-plugin-react-compiler": "1.0.0",
+        "eslint": "^9",
+        "eslint-config-next": "16.2.1",
+        "tailwindcss": "^4",
+        "typescript": "^5"
+    }
+}
