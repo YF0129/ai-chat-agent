@@ -1,9 +1,7 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
-
 First, run the development server:
-
 ```bash
 npm run dev
 # or
@@ -13,12 +11,12 @@ pnpm dev
 # or
 bun dev
 ```
-
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- 输入类似指令“如何制作一块香皂/肥皂/手工皂” —— 查询私有数据库知识点；
+- 输入类似指令“帮我查询如何制作香皂并生成报告” —— 查询私有数据库 + 自动生成markdown；
+- 输入类似指令“上海今天天气怎么样” —— 调用外部mcp server 生成今日天气；
+- 输入类似指令“帮我查询https://www.xxx.com/xxx的内容并总结” —— 查询指定网页内容并总结成markdown文本显示在AI对话框中；
 
 ## Learn More
 
