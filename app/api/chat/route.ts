@@ -10,7 +10,7 @@ import { tool } from 'ai';
 const deepseek = createDeepSeek({
   apiKey: process.env.DEEPSEEK_API_KEY!,
   baseURL: 'https://api.deepseek.com/v1',
-  compatibility: 'strict',
+  // compatibility: 'strict',
 });
 
 //这里放本地工具：
