@@ -91,17 +91,17 @@ export class McpClientManager {
           }
         } else {
           // 其他服务器通用处理
-          let parameters = mcpTool.inputSchema;
-          if (!parameters || typeof parameters !== 'object') {
-            parameters = { type: 'object', properties: {} };
+          let inputSchema = mcpTool.inputSchema;
+          if (!inputSchema || typeof inputSchema !== 'object') {
+            inputSchema = { type: 'object', properties: {} };
           }
           aiTools[mcpTool.name] = aiTool({
             description: mcpTool.description,
-            parameters: parameters,
-            execute: (async (args: any) => {
+            inputSchema: inputSchema,
+            execute: async (args: any) => {
               const originalToolName = mcpTool.name.split('__')[1];
               return this.callTool(serverName, originalToolName, args);
-            })as any,
+            },
           });
         }
       }
