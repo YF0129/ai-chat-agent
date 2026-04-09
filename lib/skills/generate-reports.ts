@@ -14,7 +14,7 @@ export const generateReportSkill = {
     
     // 1. 知识库检索
     console.log('[Skill] 正在检索知识库...');
-    const knowledgeResult = await ragSearchTool.execute({ query: topic });
+    const knowledgeResult = await ragSearchTool.execute!({ query: topic });
     const knowledgeSection = knowledgeResult !== '未找到相关文档。' 
       ? `## 知识库信息\n\n${knowledgeResult}` 
       : '## 知识库信息\n\n未找到相关内容。';
@@ -25,7 +25,7 @@ export const generateReportSkill = {
 
     // 3. 保存文档
     console.log('[Skill] 正在保存文档...');
-    const saveResult = await generateDocTool.execute({ 
+    const saveResult = await generateDocTool.execute!({ 
       title: `${topic}_报告`, 
       content: markdownContent 
     });
