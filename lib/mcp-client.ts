@@ -159,9 +159,9 @@ export async function getMcpManager() {
   if (!mcpManager) {
     mcpManager = new McpClientManager();
     // 连接 fetch 服务器（注意：第一个参数是服务器名称——区分不同服务器）
-    await mcpManager.connect('fetch', 'npx', ['-y', '@sylphlab/tools-fetch-mcp']);
+    await mcpManager.connect('fetch', 'npx', ['@sylphlab/tools-fetch-mcp']);
     // 连接天气服务器
-    await mcpManager.connect('weather', 'npx', ['-y', '-p', 'open-meteo-mcp-server', 'open-meteo-mcp-server']);
+    await mcpManager.connect('weather', 'npx', ['open-meteo-mcp-server', 'open-meteo-mcp-server']);
   }
   return mcpManager;
 }
