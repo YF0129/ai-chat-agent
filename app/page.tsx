@@ -34,7 +34,7 @@ export default function ChatPage() {
     e.preventDefault();
     if(!input?.trim()) return;
     sendMessage(
-      {content: input}
+      {text: input}
     );
     setInput(''); //需要手动清空
   }
