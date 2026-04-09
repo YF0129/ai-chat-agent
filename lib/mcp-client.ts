@@ -98,10 +98,10 @@ export class McpClientManager {
           aiTools[mcpTool.name] = aiTool({
             description: mcpTool.description,
             parameters: parameters,
-            execute: async (args: any) => {
+            execute: (async (args: any) => {
               const originalToolName = mcpTool.name.split('__')[1];
               return this.callTool(serverName, originalToolName, args);
-            },
+            })as any,
           });
         }
       }
