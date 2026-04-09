@@ -126,7 +126,7 @@ export class McpClientManager {
         else fullText += JSON.stringify(item) + '\n';
       }
     } else if ( result.body ) { //针对fetch-mcp抓取的 非标准响应（直接返回html格式而非纯文本————提取body字段）
-        fullText = result.body;
+        fullText = typeof result.body === 'string'?result.body : JSON.stringify(result.body);
     } else if (typeof result.content === 'string') {
       fullText = result.content;
     } else {
