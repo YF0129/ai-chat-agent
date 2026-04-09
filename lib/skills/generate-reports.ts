@@ -9,7 +9,7 @@ export const generateReportSkill = {
   inputSchema: z.object({
     topic: z.string().describe('报告主题，例如 "手工皂制作方法"'),
   }),
-  execute: async ({ topic }) => {
+  execute: async ({ topic }: { topic: string }) => {
     console.log(`[Skill] generate_report called with topic: ${topic}`);
     
     // 1. 知识库检索
