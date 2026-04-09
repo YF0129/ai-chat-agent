@@ -21,13 +21,11 @@
         "@langchain/pinecone": "^1.0.1",
         "@modelcontextprotocol/sdk": "^1.29.0",
         "@pinecone-database/pinecone": "^5.1.2",
-        "@sylphlab/tools-fetch-mcp": "^0.5.1",
         "@tavily/core": "^0.7.2",
         "ai": "^6.0.134",
         "dotenv": "^16.4.5",
         "langchain": "^1.2.37",
         "next": "16.2.1",
-        "open-meteo-mcp-server": "^1.6.1",
         "react": "19.2.4",
         "react-dom": "19.2.4",
         "react-markdown": "^10.1.0",
@@ -44,6 +42,8 @@
         "eslint": "^9",
         "eslint-config-next": "16.2.1",
         "tailwindcss": "^4",
-        "typescript": "^5"
+        "typescript": "^5",
+        "@sylphlab/tools-fetch-mcp": "^0.5.1",
+        "open-meteo-mcp-server": "^1.6.1"
     }
 }
