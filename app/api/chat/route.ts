@@ -22,6 +22,7 @@ const localTools = {
 
 export async function POST(req: NextRequest) {
   try {
+    console.log('[API] Request received');
     const { messages } = await req.json();
 
     // 转换前端消息格式
@@ -106,7 +107,7 @@ export async function POST(req: NextRequest) {
 
     return createUIMessageStreamResponse({ stream });
   } catch (error) {
-    // console.error('Chat API error:', error);
+    console.error('Chat API error:', error);
     return new Response('Internal Server Error', { status: 500 });
   }
 }
