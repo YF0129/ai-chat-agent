@@ -1,34 +1,11 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+一个基于 多 Agent 协作 的智能调研与知识库助手。用户只需输入一个调研主题或上传私有文档，系统自动调度多个 AI Agent 完成：任务拆解 → 知识库检索 → 联网搜索 → 数据分析 → 报告撰写 → 邮件发送。支持私有知识库（PDF/文档上传并持久化到向量数据库），全程流式输出，各 Agent 的工作过程透明可见。
 
-## Getting Started
-First, run the development server: 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+技术栈： Next.js 16 + FastAPI + LangChain + Chroma + DeepSeek + Railway + Vercel
 
-- 输入类似指令“如何制作一块香皂/肥皂/手工皂” —— 查询私有数据库知识点；
-- 输入类似指令“帮我查询如何制作香皂并生成报告” —— 查询私有数据库 + 自动生成markdown；
-- 输入类似指令“上海今天天气怎么样” —— 调用外部mcp server 生成今日天气；
-- 输入类似指令“帮我查询https://www.xxx.com/xxx的内容并总结” —— 查询指定网页内容并总结成markdown文本显示在AI对话框中；
+核心亮点：
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+· 多 Agent 角色分工与协作编排
+· 私有知识库 RAG（文档上传 → 向量化 → 持久化检索）
+· 自动调研 → 生成 Markdown 报告 → 邮件发送
+· 流式输出，Agent 思考过程实时展示
+· 前后端分离，Python 处理全部 AI 逻辑

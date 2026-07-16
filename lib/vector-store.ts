@@ -1,7 +1,6 @@
 import { MemoryVectorStore } from '@langchain/classic/vectorstores/memory';
 import { Document } from '@langchain/core/documents';
 import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters';
-import { DeepSeekEmbeddings } from './deepseek-embeddings';
 import { readFile } from 'fs/promises';
 import path from 'path';
 import { PineconeStore } from '@langchain/pinecone';
