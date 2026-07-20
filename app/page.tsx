@@ -234,6 +234,16 @@ export default function ChatPage() {
           <p className="text-xs text-gray-400">
             支持格式：.md 报告下载
           </p>
+          <button
+            onClick={async () => {
+              if (!confirm('确定清空所有对话历史？清空后请手动刷新页面开始新对话。')) return;
+              await fetch(`${process.env.NEXT_PUBLIC_API_URL}/history`, { method: 'DELETE' });
+              alert('已清空，请刷新页面开始新对话');
+            }}
+            className="text-xs text-red-400 hover:text-red-600 transition-colors"
+          >
+            🗑 清空对话
+          </button>
         </div>
       </div>
 
