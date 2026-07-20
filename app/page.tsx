@@ -32,6 +32,9 @@ export default function ChatPage() {
     }),
     onError: (error) => {
       console.error('Chat error:', error);
+    },
+    onFinish: () => {
+      loadReports(); // 当对话完成时，刷新报告列表
     }
   });
 
