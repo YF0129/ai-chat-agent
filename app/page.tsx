@@ -73,12 +73,13 @@ export default function ChatPage() {
     formData.append('file', file);
     
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/upload_pdf`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/upload_file`, {
         method: 'POST',
         body: formData,
       });
       const data = await res.json();
       setUploadMsg(`✅ ${data.message}`);
+      loadKnowledgeFiles(); // 上传成功后刷新知识库文件列表
     } catch (err) {
       setUploadMsg('❌ 上传失败，请重试');
     } finally {
@@ -147,7 +148,7 @@ export default function ChatPage() {
           <input
             ref={fileInputRef}
             type="file"
-            accept=".pdf"
+            accept=".pdf,.docx,.xlsx,.xls,.csv,.txt,.md"
             onChange={handleUpload}
             className="hidden"
           />
@@ -156,7 +157,7 @@ export default function ChatPage() {
             disabled={uploading}
             className="w-full text-sm border border-dashed border-gray-300 rounded-lg p-3 text-gray-500 hover:border-blue-400 hover:text-blue-500 transition-colors disabled:opacity-50"
           >
-            {uploading ? '⏳ 上传中...' : '📄 选择 PDF 文件'}
+            {uploading ? '⏳ 上传中...' : '📄 选择文件'}
           </button>
           {uploadMsg && (
             <p className={`text-xs mt-2 ${uploadMsg.startsWith('✅') ? 'text-green-600' : 'text-red-500'}`}>
@@ -173,14 +174,33 @@ export default function ChatPage() {
           ) : (
             <ul className="space-y-1">
               {knowledgeFiles.map((f) => (
-                <li key={f.filename}>
+                <li key={f.filename} className="flex items-center justify-between group">
                   <a
                     href={`${process.env.NEXT_PUBLIC_API_URL}/knowledge/${f.filename}`}
                     download
-                    className="text-xs text-blue-500 hover:text-blue-700 truncate block"
+                    className="text-xs text-blue-500 hover:text-blue-700 truncate flex-1"
                   >
                     📄 {f.filename}
                   </a>
+                  <button
+                    onClick={async () => {
+                      if (!confirm(`确定删除 ${f.filename}？`)) return;
+                      try {
+                        const res = await fetch(
+                          `${process.env.NEXT_PUBLIC_API_URL}/knowledge/${f.filename}`,
+                          { method: 'DELETE' }
+                        );
+                        if (res.ok) {
+                          loadKnowledgeFiles();
+                        }
+                      } catch (err) {
+                        console.error('删除失败', err);
+                      }
+                    }}
+                    className="text-red-400 hover:text-red-600 text-xs ml-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    🗑
+                  </button>
                 </li>
               ))}
             </ul>
