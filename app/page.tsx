@@ -38,7 +38,7 @@ export default function ChatPage() {
   useEffect(() => {
     loadReports();
     loadKnowledgeFiles();
-  }, [messages]);
+  }, []);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
