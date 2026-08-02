@@ -6,6 +6,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import 'highlight.js/styles/github-dark.css';
+import ChatBubble from './chat-bubble';
 
 export default function ChatPage() {
   const [input, setInput] = useState('');
@@ -194,6 +195,8 @@ export default function ChatPage() {
                           { method: 'DELETE' }
                         );
                         if (res.ok) {
+                          // 清空前端消息列表
+                          window.location.reload();  // 最简单的方式
                           loadKnowledgeFiles();
                         }
                       } catch (err) {
@@ -348,6 +351,8 @@ export default function ChatPage() {
           background: #94a3b8;
         }
       `}</style>
+
+      <ChatBubble />
     </div>
   );
 }
