@@ -242,9 +242,12 @@ export default function ChatPage() {
           </p>
           <button
             onClick={async () => {
-              if (!confirm('确定清空所有对话历史？清空后请手动刷新页面开始新对话。')) return;
-              await fetch(`${process.env.NEXT_PUBLIC_API_URL}/history`, { method: 'DELETE' });
-              alert('已清空，请刷新页面开始新对话');
+              if (!confirm('确定清空所有对话历史？')) return;
+              const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/history`, { method: 'DELETE' });
+              if (res.ok) {
+                // 清空前端消息列表
+                window.location.reload();  // 最简单的方式
+              }
             }}
             className="text-xs text-red-400 hover:text-red-600 transition-colors"
           >
@@ -352,7 +355,7 @@ export default function ChatPage() {
         }
       `}</style>
 
-      <ChatBubble />
+      {/* <ChatBubble /> */}
     </div>
   );
 }
