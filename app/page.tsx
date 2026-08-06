@@ -6,27 +6,10 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import 'highlight.js/styles/github-dark.css';
-import ChatBubble from './chat-bubble';
 
 export default function ChatPage() {
   const [input, setInput] = useState('');
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [uploading, setUploading] = useState(false);
-  const [uploadMsg, setUploadMsg] = useState('');
-  const [reports, setReports] = useState<{filename: string, size: number}[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [knowledgeFiles, setKnowledgeFiles] = useState<{filename: string, size: number}[]>([]);
 
-  const loadKnowledgeFiles = async () => {
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/knowledge`);
-      const data = await res.json();
-      setKnowledgeFiles(data.files || []);
-    } catch (e) {
-      console.error('加载知识库列表失败', e);
-    }
-  };
-  
   const { messages, sendMessage, status } = useChat({
     transport: new DefaultChatTransport({
       api: `${process.env.NEXT_PUBLIC_API_URL}/chat`,
@@ -34,15 +17,7 @@ export default function ChatPage() {
     onError: (error) => {
       console.error('Chat error:', error);
     },
-    onFinish: () => {
-      loadReports(); // 当对话完成时，刷新报告列表
-    }
   });
-
-  useEffect(() => {
-    loadReports();
-    loadKnowledgeFiles();
-  }, []);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -50,53 +25,17 @@ export default function ChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // 加载报告列表
-  const loadReports = async () => {
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/reports`);
-      const data = await res.json();
-      setReports(data.reports || []);
-    } catch (e) {
-      console.error('加载报告列表失败', e);
-    }
-  };
-
-  useEffect(() => {
-    loadReports();
-  }, [messages]);
-
-  // 上传 PDF
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    
-    setUploading(true);
-    setUploadMsg('');
-    
-    const formData = new FormData();
-    formData.append('file', file);
-    
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/upload_file`, {
-        method: 'POST',
-        body: formData,
-      });
-      const data = await res.json();
-      setUploadMsg(`✅ ${data.message}`);
-      loadKnowledgeFiles(); // 上传成功后刷新知识库文件列表
-    } catch (err) {
-      setUploadMsg('❌ 上传失败，请重试');
-    } finally {
-      setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    }
-  };
-
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!input?.trim()) return;
     sendMessage({ text: input });
     setInput('');
+  };
+
+  const handleClearHistory = async () => {
+    if (!confirm('确定清空所有对话历史？')) return;
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/history`, { method: 'DELETE' });
+    if (res.ok) window.location.reload();
   };
 
   const getMessageContent = (message: any) => {
@@ -113,7 +52,7 @@ export default function ChatPage() {
         .filter((part: any) => part.type === 'tool-result')
         .map(() => `✅ 工具返回结果`)
         .join(' ');
-    
+
       return (
         <div>
           <div className="prose prose-sm max-w-none break-words dark:prose-invert">
@@ -121,13 +60,13 @@ export default function ChatPage() {
               {fullText}
             </ReactMarkdown>
           </div>
-          {toolCalls && <div className="text-xs text-gray-500 mt-1">{toolCalls}</div>}
-          {toolResults && <div className="text-gray-500 text-xs mt-1">{toolResults}</div>}
+          {toolCalls && <div className="text-xs text-slate-400 dark:text-slate-500 mt-1.5">{toolCalls}</div>}
+          {toolResults && <div className="text-slate-400 dark:text-slate-500 text-xs mt-1">{toolResults}</div>}
         </div>
       );
     }
     return (
-      <div className="prose prose-sm max-w-none break-words">
+      <div className="prose prose-sm max-w-none break-words dark:prose-invert">
         <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
           {message.content || ''}
         </ReactMarkdown>
@@ -138,224 +77,129 @@ export default function ChatPage() {
   const isLoading = status === 'submitted' || status === 'streaming';
 
   return (
-    <div className="flex h-screen bg-gradient-to-br from-slate-50 to-gray-100">
-      
-      {/* ========== 左侧边栏 ========== */}
-      <div className={`${sidebarOpen ? 'w-64' : 'w-0'} bg-white border-r border-gray-200 flex flex-col transition-all duration-300 overflow-hidden`}>
-        <div className="p-4 border-b border-gray-100">
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">工具箱</h2>
-        </div>
-        
-        {/* 上传 PDF */}
-        <div className="p-4 border-b border-gray-100">
-          <h3 className="text-sm font-medium text-gray-700 mb-2">📁 上传知识库</h3>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".pdf,.docx,.xlsx,.xls,.csv,.txt,.md"
-            onChange={handleUpload}
-            className="hidden"
-          />
+    <div className="flex flex-col h-full">
+      {messages.length > 0 && (
+        <div className="absolute top-3 right-5 z-10">
           <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
-            className="w-full text-sm border border-dashed border-gray-300 rounded-lg p-3 text-gray-500 hover:border-blue-400 hover:text-blue-500 transition-colors disabled:opacity-50"
+            onClick={handleClearHistory}
+            className="text-xs text-slate-400 dark:text-slate-500 hover:text-rose-500 dark:hover:text-rose-400 transition-colors px-2.5 py-1 rounded-md hover:bg-rose-50 dark:hover:bg-rose-900/20"
           >
-            {uploading ? '⏳ 上传中...' : '📄 选择文件'}
+            清空对话
           </button>
-          {uploadMsg && (
-            <p className={`text-xs mt-2 ${uploadMsg.startsWith('✅') ? 'text-green-600' : 'text-red-500'}`}>
-              {uploadMsg}
-            </p>
-          )}
         </div>
+      )}
 
-        {/* 知识库文件列表 */}
-        <div className="p-4 border-b border-gray-100">
-          <h3 className="text-sm font-medium text-gray-700 mb-2">📚 知识库文件</h3>
-          {knowledgeFiles.length === 0 ? (
-            <p className="text-xs text-gray-400">暂无文件</p>
-          ) : (
-            <ul className="space-y-1">
-              {knowledgeFiles.map((f) => (
-                <li key={f.filename} className="flex items-center justify-between group">
-                  <a
-                    href={`${process.env.NEXT_PUBLIC_API_URL}/knowledge/${f.filename}`}
-                    download
-                    className="text-xs text-blue-500 hover:text-blue-700 truncate flex-1"
-                  >
-                    📄 {f.filename}
-                  </a>
+      <div className="flex-1 overflow-y-auto scroll-smooth">
+        <div className="max-w-3xl mx-auto px-6 py-6 space-y-5">
+          {messages.length === 0 && (
+            <div className="flex flex-col items-center justify-center text-center mt-20 animate-fade-in">
+              <div className="relative mb-8">
+                <div className="absolute inset-0 w-24 h-24 rounded-full bg-indigo-400/15 dark:bg-indigo-500/10 animate-ping" style={{ animationDuration: '3s' }} />
+                <div className="absolute -inset-5 w-28 h-28 rounded-full border border-indigo-300/25 dark:border-indigo-500/15 animate-spin" style={{ animationDuration: '8s' }} />
+                <div className="absolute -inset-8 w-32 h-32 rounded-full border border-indigo-200/15 dark:border-indigo-400/10 animate-spin" style={{ animationDuration: '12s', animationDirection: 'reverse' }} />
+                <div className="absolute -inset-5 w-28 h-28 animate-spin" style={{ animationDuration: '6s' }}>
+                  <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-indigo-400 dark:bg-indigo-500 shadow-sm shadow-indigo-400" />
+                </div>
+                <div className="absolute -inset-7 w-32 h-32 animate-spin" style={{ animationDuration: '5s', animationDirection: 'reverse' }}>
+                  <div className="absolute bottom-2 right-5 w-2 h-2 rounded-full bg-violet-400 dark:bg-violet-500 shadow-sm shadow-violet-400" />
+                </div>
+                <div className="absolute -inset-4 w-28 h-28 animate-spin" style={{ animationDuration: '7s' }}>
+                  <div className="absolute top-4 right-1 w-1.5 h-1.5 rounded-full bg-indigo-300/60 dark:bg-indigo-400/40" />
+                </div>
+                <div className="relative w-20 h-20 rounded-2xl bg-gradient-to-br from-indigo-500 via-indigo-600 to-violet-600 flex items-center justify-center text-white shadow-xl shadow-indigo-300/30 dark:shadow-indigo-500/20 z-10">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                  </svg>
+                </div>
+              </div>
+
+              <p className="text-2xl font-bold text-slate-700 dark:text-slate-200 mb-2">欢迎使用 Knowledge AI</p>
+              <p className="text-sm text-slate-400 dark:text-slate-500 max-w-md leading-relaxed mb-8">
+                试试说：帮我调研手工皂市场前景，生成报告并发到邮箱
+              </p>
+
+              <div className="flex flex-wrap gap-2.5 justify-center">
+                {['帮我调研新能源汽车市场', '总结知识库中的要点', '写一份竞品分析报告'].map((s) => (
                   <button
-                    onClick={async () => {
-                      if (!confirm(`确定删除 ${f.filename}？`)) return;
-                      try {
-                        const res = await fetch(
-                          `${process.env.NEXT_PUBLIC_API_URL}/knowledge/${f.filename}`,
-                          { method: 'DELETE' }
-                        );
-                        if (res.ok) {
-                          // 清空前端消息列表
-                          window.location.reload();  // 最简单的方式
-                          loadKnowledgeFiles();
-                        }
-                      } catch (err) {
-                        console.error('删除失败', err);
-                      }
-                    }}
-                    className="text-red-400 hover:text-red-600 text-xs ml-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                    key={s}
+                    onClick={() => setInput(s)}
+                    className="text-sm text-slate-500 dark:text-slate-400 bg-white/60 dark:bg-slate-800/50 backdrop-blur-sm border border-slate-200/50 dark:border-slate-700/50 rounded-full px-4 py-2 hover:border-indigo-300/50 dark:hover:border-indigo-500/40 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50/60 dark:hover:bg-indigo-900/20 hover:shadow-sm transition-all active:scale-95"
                   >
-                    🗑
+                    {s}
                   </button>
-                </li>
-              ))}
-            </ul>
+                ))}
+              </div>
+            </div>
           )}
-        </div>
 
-        {/* 报告列表 */}
-        <div className="flex-1 overflow-y-auto p-4">
-          <h3 className="text-sm font-medium text-gray-700 mb-2">📋 已生成报告</h3>
-          {reports.length === 0 ? (
-            <p className="text-xs text-gray-400">暂无报告</p>
-          ) : (
-            <ul className="space-y-1">
-              {reports.map((r) => (
-                <li key={r.filename}>
-                  <a
-                    href={`${process.env.NEXT_PUBLIC_API_URL}/reports/${r.filename}`}
-                    download
-                    className="text-xs text-blue-500 hover:text-blue-700 truncate block"
-                  >
-                    📄 {r.filename}
-                  </a>
-                </li>
-              ))}
-            </ul>
+          {messages.map((message) => (
+            <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`}>
+              {message.role !== 'user' && (
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-400 to-indigo-500 flex items-center justify-center text-white text-xs font-medium shrink-0 mr-3 mt-0.5 shadow-sm">AI</div>
+              )}
+              <div
+                className={`max-w-[78%] rounded-2xl px-4 py-3 ${
+                  message.role === 'user'
+                    ? 'bg-gradient-to-r from-indigo-500 to-indigo-600 text-white shadow-md shadow-indigo-200/40 dark:shadow-indigo-500/20'
+                    : 'bg-white/70 dark:bg-slate-800/60 backdrop-blur-sm border border-slate-200/50 dark:border-slate-700/50 text-slate-800 dark:text-slate-200 shadow-sm'
+                }`}
+              >
+                {getMessageContent(message)}
+              </div>
+              {message.role === 'user' && (
+                <div className="w-8 h-8 rounded-xl bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-400 dark:text-slate-500 text-xs font-medium shrink-0 ml-3 mt-0.5">U</div>
+              )}
+            </div>
+          ))}
+
+          {isLoading && (
+            <div className="flex justify-start items-start gap-3 animate-fade-in">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-400 to-indigo-500 flex items-center justify-center text-white text-xs font-medium shrink-0 mt-0.5 shadow-sm">AI</div>
+              <div className="bg-white/70 dark:bg-slate-800/60 backdrop-blur-sm border border-slate-200/50 dark:border-slate-700/50 rounded-2xl px-4 py-3 shadow-sm">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                  <span className="text-sm text-slate-400 dark:text-slate-500 ml-1.5">AI 正在思考...</span>
+                </div>
+              </div>
+            </div>
           )}
-        </div>
-
-        {/* 底部提示 */}
-        <div className="p-4 border-t border-gray-100">
-          <p className="text-xs text-gray-400">
-            支持格式：.md 报告下载
-          </p>
-          <button
-            onClick={async () => {
-              if (!confirm('确定清空所有对话历史？')) return;
-              const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/history`, { method: 'DELETE' });
-              if (res.ok) {
-                // 清空前端消息列表
-                window.location.reload();  // 最简单的方式
-              }
-            }}
-            className="text-xs text-red-400 hover:text-red-600 transition-colors"
-          >
-            🗑 清空对话
-          </button>
+          <div ref={messagesEndRef} />
         </div>
       </div>
 
-      {/* ========== 右侧主区域 ========== */}
-      <div className="flex-1 flex flex-col min-w-0">
-        
-        {/* 顶部切换按钮 + Header */}
-        <header className="bg-white/80 backdrop-blur-sm border-b border-gray-200 px-4 py-3 flex items-center gap-3">
-          <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+      <div className="shrink-0 px-4 pb-2">
+        <form onSubmit={onSubmit} className="max-w-3xl mx-auto">
+          <div
+            className="flex items-center gap-3 rounded-2xl border border-slate-200/50 dark:border-slate-700/50 px-2 py-1.5 shadow-md shadow-slate-200/30 dark:shadow-black/20"
+            style={{
+              background: 'var(--glass-input)',
+              backdropFilter: 'blur(20px)',
+              WebkitBackdropFilter: 'blur(20px)',
+            }}
           >
-            {sidebarOpen ? '◀' : '▶'}
-          </button>
-          <div>
-            <h1 className="text-lg font-semibold text-gray-800">🤖 Multi-Agent 智能调研助手</h1>
-            <p className="text-xs text-gray-500">知识库检索 · 联网搜索 · 数据分析 · 报告生成 · 邮件发送</p>
-          </div>
-        </header>
-
-        {/* 聊天消息区 */}
-        <div className="flex-1 overflow-y-auto px-4 py-6 scroll-smooth">
-          <div className="max-w-3xl mx-auto space-y-4">
-            {messages.length === 0 && (
-              <div className="text-center text-gray-400 mt-20">
-                <p className="text-4xl mb-4">🤖</p>
-                <p className="text-lg font-medium">欢迎使用 Multi-Agent 智能调研助手</p>
-                <p className="text-sm mt-2">
-                  试试说：帮我调研手工皂市场前景，生成报告并发到邮箱
-                </p>
-              </div>
-            )}
-            {messages.map((message) => (
-              <div
-                key={message.id}
-                className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-              >
-                <div
-                  className={`max-w-[85%] rounded-2xl px-4 py-3 shadow-sm ${
-                    message.role === 'user'
-                      ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white'
-                      : 'bg-white border border-gray-200 text-gray-800'
-                  }`}
-                >
-                  {getMessageContent(message)}
-                </div>
-              </div>
-            ))}
-            {isLoading && (
-              <div className="flex justify-start">
-                <div className="bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-sm flex items-center space-x-2">
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                  <span className="text-sm text-gray-500 ml-1">AI 正在思考...</span>
-                </div>
-              </div>
-            )}
-            <div ref={messagesEndRef} />
-          </div>
-        </div>
-
-        {/* 底部输入框 */}
-        <div className="border-t border-gray-200 bg-white/80 backdrop-blur-sm p-4">
-          <form onSubmit={onSubmit} className="max-w-3xl mx-auto flex gap-3">
             <input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="输入调研主题或问题，支持知识库问答、报告生成、邮件发送..."
-              className="flex-1 rounded-full border border-gray-300 px-5 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
+              placeholder="输入调研主题或问题..."
+              className="flex-1 bg-transparent border-none px-3 py-2.5 focus:outline-none text-sm placeholder:text-slate-400 dark:placeholder:text-slate-500 text-slate-800 dark:text-slate-200"
               disabled={isLoading}
             />
             <button
               type="submit"
               disabled={!input.trim() || isLoading}
-              className="bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-full px-6 py-3 font-medium shadow-md hover:shadow-lg hover:from-blue-600 hover:to-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+              className="bg-gradient-to-r from-indigo-500 to-indigo-600 text-white rounded-xl px-4 py-2.5 font-medium shadow-sm shadow-indigo-200/40 dark:shadow-indigo-500/20 hover:shadow-md hover:from-indigo-600 hover:to-indigo-700 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none text-sm flex items-center gap-1.5 shrink-0 active:scale-95"
             >
-              发送
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="22" y1="2" x2="11" y2="13" />
+                <polygon points="22 2 15 22 11 13 2 9 22 2" />
+              </svg>
             </button>
-          </form>
-        </div>
+          </div>
+        </form>
       </div>
-
-      <style jsx global>{`
-        ::-webkit-scrollbar {
-          width: 6px;
-          height: 6px;
-        }
-        ::-webkit-scrollbar-track {
-          background: #f1f1f1;
-          border-radius: 3px;
-        }
-        ::-webkit-scrollbar-thumb {
-          background: #cbd5e1;
-          border-radius: 3px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-          background: #94a3b8;
-        }
-      `}</style>
-
-      {/* <ChatBubble /> */}
     </div>
   );
 }
