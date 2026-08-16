@@ -38,20 +38,21 @@ export default function ChatPage() {
     if (res.ok) window.location.reload();
   };
 
-  const getMessageContent = (message: any) => {
+  // 提取消息文本（兼容 parts 与 content 两种结构）
+  const getStreamedText = (m: any) => {
+    if (!m) return '';
+    if (m.parts) return m.parts.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('');
+    return typeof m.content === 'string' ? m.content : '';
+  };
+
+  const getMessageContent = (message: any, streaming = false) => {
     if (message.parts) {
       const fullText = message.parts
         .filter((part: any) => part.type === 'text')
         .map((part: any) => part.text)
         .join('');
-      const toolCalls = message.parts
-        .filter((part: any) => part.type === 'tool-call')
-        .map((part: any) => `🔧 调用工具: ${part.toolName}`)
-        .join(' ');
-      const toolResults = message.parts
-        .filter((part: any) => part.type === 'tool-result')
-        .map(() => `✅ 工具返回结果`)
-        .join(' ');
+      const toolCalls = message.parts.filter((part: any) => part.type === 'tool-call');
+      const toolResults = message.parts.filter((part: any) => part.type === 'tool-result');
 
       return (
         <div>
@@ -59,9 +60,19 @@ export default function ChatPage() {
             <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
               {fullText}
             </ReactMarkdown>
+            {streaming && (
+              <div className="flex items-center gap-1 mt-1.5">
+                <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+              </div>
+            )}
           </div>
-          {toolCalls && <div className="text-xs text-slate-400 dark:text-slate-500 mt-1.5">{toolCalls}</div>}
-          {toolResults && <div className="text-slate-400 dark:text-slate-500 text-xs mt-1">{toolResults}</div>}
+          {toolCalls.length > 0 && (
+            <div className="text-xs text-slate-400 dark:text-slate-500 mt-1.5">
+              ⚙️ 已调用 {toolCalls.length} 个工具{toolResults.length > 0 ? ` · ${toolResults.length} 个已返回` : ''}
+            </div>
+          )}
         </div>
       );
     }
@@ -70,11 +81,23 @@ export default function ChatPage() {
         <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
           {message.content || ''}
         </ReactMarkdown>
+        {streaming && (
+          <div className="flex items-center gap-1 mt-1.5">
+            <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+            <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+            <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+          </div>
+        )}
       </div>
     );
   };
 
   const isLoading = status === 'submitted' || status === 'streaming';
+
+  // 只有助手消息还没有任何文字输出时才显示思考框，避免与流式输出框并存
+  const lastMessage = messages[messages.length - 1];
+  const showThinking =
+    isLoading && !(lastMessage?.role === 'assistant' && getStreamedText(lastMessage).trim().length > 0);
 
   return (
     <div className="flex flex-col h-full">
@@ -132,7 +155,11 @@ export default function ChatPage() {
             </div>
           )}
 
-          {messages.map((message) => (
+          {messages.map((message) => {
+            // 流式中尚未产出文字的空助手消息不渲染，交给思考框占位，避免出现两个框
+            if (message.role === 'assistant' && isLoading && getStreamedText(message).trim() === '') return null;
+            const isStreamingThis = isLoading && message.role === 'assistant' && lastMessage?.id === message.id;
+            return (
             <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`}>
               {message.role !== 'user' && (
                 <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-400 to-indigo-500 flex items-center justify-center text-white text-xs font-medium shrink-0 mr-3 mt-0.5 shadow-sm">AI</div>
@@ -144,15 +171,16 @@ export default function ChatPage() {
                     : 'bg-white/70 dark:bg-slate-800/60 backdrop-blur-sm border border-slate-200/50 dark:border-slate-700/50 text-slate-800 dark:text-slate-200 shadow-sm'
                 }`}
               >
-                {getMessageContent(message)}
+                {getMessageContent(message, isStreamingThis)}
               </div>
               {message.role === 'user' && (
                 <div className="w-8 h-8 rounded-xl bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-400 dark:text-slate-500 text-xs font-medium shrink-0 ml-3 mt-0.5">U</div>
               )}
             </div>
-          ))}
+            );
+          })}
 
-          {isLoading && (
+          {showThinking && (
             <div className="flex justify-start items-start gap-3 animate-fade-in">
               <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-400 to-indigo-500 flex items-center justify-center text-white text-xs font-medium shrink-0 mt-0.5 shadow-sm">AI</div>
               <div className="bg-white/70 dark:bg-slate-800/60 backdrop-blur-sm border border-slate-200/50 dark:border-slate-700/50 rounded-2xl px-4 py-3 shadow-sm">
