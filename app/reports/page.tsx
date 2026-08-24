@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
+import { apiFetch, downloadFile } from '@/lib/auth';
 
 interface Report { filename: string; size: number; }
 function formatSize(b: number) {
@@ -22,7 +23,7 @@ export default function ReportsPage() {
   const loadReports = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/reports`);
+      const res = await apiFetch('/reports');
       const data = await res.json();
       setReports(data.reports || []);
     } catch (e) { console.error('加载失败', e); }
@@ -33,7 +34,7 @@ export default function ReportsPage() {
   const handlePreview = async (filename: string) => {
     if (previewFilename === filename) { setPreview(null); setPreviewFilename(null); return; }
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/reports/${filename}`);
+      const res = await apiFetch(`/reports/${encodeURIComponent(filename)}`);
       setPreview(await res.text());
       setPreviewFilename(filename);
     } catch (e) { console.error('加载失败', e); }
@@ -78,7 +79,7 @@ export default function ReportsPage() {
                   <button onClick={(e) => { e.stopPropagation(); handlePreview(r.filename); }} className="text-xs text-indigo-500 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-medium">
                     {previewFilename === r.filename ? '收起' : '预览'}
                   </button>
-                  <a href={`${process.env.NEXT_PUBLIC_API_URL}/reports/${r.filename}`} download onClick={(e) => e.stopPropagation()} className="text-xs text-slate-400 dark:text-slate-500 hover:text-indigo-500">下载</a>
+                  <button onClick={(e) => { e.stopPropagation(); downloadFile(`/reports/${encodeURIComponent(r.filename)}`, r.filename); }} className="text-xs text-slate-400 dark:text-slate-500 hover:text-indigo-500">下载</button>
                 </div>
               </div>
             ))}

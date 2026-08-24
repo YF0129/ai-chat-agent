@@ -6,13 +6,28 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import 'highlight.js/styles/github-dark.css';
+import { API_URL, getToken, clearToken, clearUser, apiFetch } from '@/lib/auth';
 
 export default function ChatPage() {
   const [input, setInput] = useState('');
 
   const { messages, sendMessage, status } = useChat({
     transport: new DefaultChatTransport({
-      api: `${process.env.NEXT_PUBLIC_API_URL}/chat`,
+      api: `${API_URL}/chat`,
+      fetch: (input, init) => {
+        // 用 fetch 包装注入 Authorization：SSE 流里 401 也能被拦截
+        const headers = new Headers(init?.headers || {});
+        const t = getToken();
+        if (t) headers.set('Authorization', `Bearer ${t}`);
+        return fetch(input, { ...init, headers }).then((res) => {
+          if (res.status === 401) {
+            clearToken();
+            clearUser();
+            window.location.href = '/login';
+          }
+          return res;
+        });
+      },
     }),
     onError: (error) => {
       console.error('Chat error:', error);
@@ -34,7 +49,7 @@ export default function ChatPage() {
 
   const handleClearHistory = async () => {
     if (!confirm('确定清空所有对话历史？')) return;
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/history`, { method: 'DELETE' });
+    const res = await apiFetch('/history', { method: 'DELETE' });
     if (res.ok) window.location.reload();
   };
 
@@ -142,7 +157,7 @@ export default function ChatPage() {
               </p>
 
               <div className="flex flex-wrap gap-2.5 justify-center">
-                {['帮我调研新能源汽车市场', '总结知识库中的要点', '写一份竞品分析报告'].map((s) => (
+                {['帮我调研新能源汽车市场', '潜水OW考证需要准备什么', '写一份竞品分析报告'].map((s) => (
                   <button
                     key={s}
                     onClick={() => setInput(s)}

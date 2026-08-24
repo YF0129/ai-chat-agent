@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { apiFetch, downloadFile } from '@/lib/auth';
 
 interface KnowledgeFile { filename: string; size: number; }
 
@@ -26,7 +27,7 @@ export default function KnowledgePage() {
 
   const loadFiles = async () => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/knowledge`);
+      const res = await apiFetch('/knowledge');
       const data = await res.json();
       setFiles(data.files || []);
     } catch (e) { console.error('加载失败', e); }
@@ -40,7 +41,7 @@ export default function KnowledgePage() {
     setUploading(true); setUploadMsg('');
     const fd = new FormData(); fd.append('file', file);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/upload_file`, { method: 'POST', body: fd });
+      const res = await apiFetch('/upload_file', { method: 'POST', body: fd });
       const data = await res.json();
       setUploadMsg(`✅ ${data.message}`);
       loadFiles();
@@ -52,7 +53,7 @@ export default function KnowledgePage() {
     if (!confirm(`确定删除 ${filename}？`)) return;
     setDeleting(filename);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/knowledge/${filename}`, { method: 'DELETE' });
+      const res = await apiFetch(`/knowledge/${encodeURIComponent(filename)}`, { method: 'DELETE' });
       if (res.ok) { loadFiles(); window.location.reload(); }
     } catch (e) { console.error('删除失败', e); }
     finally { setDeleting(null); }
@@ -100,7 +101,7 @@ export default function KnowledgePage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-3 mt-3 pt-3 border-t border-slate-100/70 dark:border-slate-700/50 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <a href={`${process.env.NEXT_PUBLIC_API_URL}/knowledge/${file.filename}`} download className="text-xs text-indigo-500 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-medium transition-colors">下载</a>
+                  <button onClick={() => downloadFile(`/knowledge/${encodeURIComponent(file.filename)}`, file.filename)} className="text-xs text-indigo-500 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-medium transition-colors">下载</button>
                   <button onClick={() => handleDelete(file.filename)} disabled={deleting === file.filename} className="text-xs text-slate-400 dark:text-slate-500 hover:text-rose-500 dark:hover:text-rose-400 transition-colors">
                     {deleting === file.filename ? '删除中...' : '删除'}
                   </button>

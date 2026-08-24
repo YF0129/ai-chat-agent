@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import ThemeProvider from "@/components/theme-provider";
+import AuthProvider from "@/components/auth-provider";
 import TopBar from "@/components/top-bar";
 import FloatingDock from "@/components/floating-dock";
 import BackgroundOrbs from "@/components/background-orbs";
@@ -19,12 +20,14 @@ export default function RootLayout({
     <html lang="zh-CN" className="h-full antialiased" suppressHydrationWarning>
       <body className="h-full flex flex-col bg-slate-50 dark:bg-[#0b1120] relative transition-colors duration-300">
         <ThemeProvider>
-          <BackgroundOrbs />
-          <TopBar />
-          <main className="flex-1 min-h-0 overflow-hidden pt-12 pb-20 relative z-10">
-            {children}
-          </main>
-          <FloatingDock />
+          <AuthProvider>
+            <BackgroundOrbs />
+            <TopBar />
+            <main className="flex-1 min-h-0 overflow-hidden pt-12 pb-20 relative z-10">
+              {children}
+            </main>
+            <FloatingDock />
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

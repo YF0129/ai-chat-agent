@@ -43,6 +43,7 @@ const dockItems = [
 
 export default function FloatingDock() {
   const pathname = usePathname();
+  if (pathname === '/login') return null;
 
   return (
     <div className="fixed bottom-0 left-0 right-0 flex justify-center z-30 pointer-events-none pb-4">

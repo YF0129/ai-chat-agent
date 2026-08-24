@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTheme } from '@/components/theme-provider';
+import { useAuth } from '@/components/auth-provider';
 
 const pageTitles: Record<string, string> = {
   '/': 'AI 对话',
@@ -15,6 +16,8 @@ const pageTitles: Record<string, string> = {
 export default function TopBar() {
   const pathname = usePathname();
   const { theme, toggle } = useTheme();
+  const { user, logout } = useAuth();
+  if (pathname === '/login') return null;
   const title = pageTitles[pathname] || 'Knowledge AI';
 
   return (
@@ -42,6 +45,11 @@ export default function TopBar() {
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-sm shadow-emerald-300 dark:bg-emerald-500 dark:shadow-emerald-500/30" />
           在线
         </span>
+        {user && (
+          <span className="hidden md:flex items-center text-xs text-slate-500 dark:text-slate-400 px-2 py-1 rounded-lg border border-slate-200/40 dark:border-slate-700/50">
+            {user.phone}
+          </span>
+        )}
         <button
           onClick={toggle}
           className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
@@ -60,6 +68,16 @@ export default function TopBar() {
               <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
             </svg>
           )}
+        </button>
+        <button
+          onClick={logout}
+          className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+          title="退出登录"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+            <polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" />
+          </svg>
         </button>
       </div>
     </header>
