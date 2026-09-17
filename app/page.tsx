@@ -1,6 +1,6 @@
 'use client';
 import { useChat } from '@ai-sdk/react';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, memo } from 'react';
 import { DefaultChatTransport } from 'ai';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -8,10 +8,109 @@ import rehypeHighlight from 'rehype-highlight';
 import 'highlight.js/styles/github-dark.css';
 import { API_URL, getToken, clearToken, clearUser, apiFetch } from '@/lib/auth';
 
+// 插件数组提到模块级。写在渲染里每次都是新数组，ReactMarkdown 的 props 引用一变
+// 就重渲染，下面 MarkdownBody 的 memo 会直接失效
+const REMARK_PLUGINS = [remarkGfm];
+const REHYPE_PLUGINS = [rehypeHighlight];
+const NO_REHYPE: [] = [];
+
+// 只出三个点，外层容器（间距、边距）由调用方给，两处用法视觉完全一致
+function ThinkingDots() {
+  return (
+    <>
+      <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+      <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+      <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+    </>
+  );
+}
+
+const FENCE_RE = /^\s*(?:```|~~~)/gm;
+const LIST_ITEM_RE = /^\s*(?:[-*+]|\d+[.)])\s/;
+
+// 流式正文切成"已成型的前缀 + 正在长的尾巴"：前缀按值 memo，只有段落数增加时才需要
+// 重新解析；尾巴很短，逐帧解析的代价是 O(段落) 而不是 O(全文)。
+// 不切的话每帧都要重解析整篇，又回到 O(n²)。
+function splitStreaming(text: string): [string, string] {
+  let idx = text.lastIndexOf('\n\n');
+  while (idx > 0) {
+    const prefix = text.slice(0, idx);
+    const lastLine = prefix.slice(prefix.lastIndexOf('\n') + 1);
+    // 围栏代码块必须成对，切在中间会把一段代码撕成两半
+    const fenced =
+      prefix.includes('```') && (prefix.match(FENCE_RE) || []).length % 2 !== 0;
+    // 切在列表项之间会把一个列表拆成两个，间距会变
+    const inList = LIST_ITEM_RE.test(lastLine);
+    if (!fenced && !inList) return [prefix, text.slice(idx)];
+    idx = text.lastIndexOf('\n\n', idx - 1);
+  }
+  return ['', text];
+}
+
+// 已成型的前缀：text 不变就完全不重新解析，这是长报告不卡的关键
+const FrozenMarkdown = memo(function FrozenMarkdown({ text }: { text: string }) {
+  return (
+    <ReactMarkdown remarkPlugins={REMARK_PLUGINS} rehypePlugins={NO_REHYPE}>
+      {text}
+    </ReactMarkdown>
+  );
+});
+
+// 只接收原始字符串，配合 memo：历史消息的 text 不变就整块跳过，
+// 否则流式期间每来一个 delta，前面每一篇长报告都会被重新解析一遍
+const MarkdownBody = memo(function MarkdownBody({
+  text,
+  streaming,
+  toolCalls = 0,
+  toolResults = 0,
+}: {
+  text: string;
+  streaming: boolean;
+  toolCalls?: number;
+  toolResults?: number;
+}) {
+  // 流式期间跳过高亮：每来一个 delta 就把整篇累积文本重跑一遍 highlight.js，
+  // 越长越卡，浏览器只好把更新合并成"一大段一大段"地跳。结束后再补上
+  const [frozen, live] = streaming ? splitStreaming(text) : ['', text];
+
+  return (
+    <div>
+      <div className="prose prose-sm max-w-none break-words dark:prose-invert">
+        {streaming ? (
+          <>
+            <FrozenMarkdown text={frozen} />
+            <ReactMarkdown remarkPlugins={REMARK_PLUGINS} rehypePlugins={NO_REHYPE}>
+              {live}
+            </ReactMarkdown>
+          </>
+        ) : (
+          <ReactMarkdown remarkPlugins={REMARK_PLUGINS} rehypePlugins={REHYPE_PLUGINS}>
+            {text}
+          </ReactMarkdown>
+        )}
+        {streaming && (
+          <div className="flex items-center gap-1 mt-1.5">
+            <ThinkingDots />
+          </div>
+        )}
+      </div>
+      {toolCalls > 0 && (
+        <div className="text-xs text-slate-400 dark:text-slate-500 mt-1.5">
+          ⚙️ 已调用 {toolCalls} 个工具{toolResults > 0 ? ` · ${toolResults} 个已返回` : ''}
+        </div>
+      )}
+    </div>
+  );
+});
+
 export default function ChatPage() {
   const [input, setInput] = useState('');
 
   const { messages, sendMessage, status } = useChat({
+    // 后端按 token 下发，一个 delta 往往只有两三个字。不节流的话每个 delta 都要
+    // 把整篇累积正文重新解析一遍 Markdown，是 O(n²)——一份长报告能卡死主线程。
+    // 100ms 合并一次，观感上还是连续打字，重解析次数降到十分之一。
+    experimental_throttle: 100,
     transport: new DefaultChatTransport({
       api: `${API_URL}/chat`,
       fetch: (input, init) => {
@@ -34,10 +133,22 @@ export default function ChatPage() {
     },
   });
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const stickToBottomRef = useRef(true);
+
+  // 距底部 80px 内算"跟随中"；用户往上翻看历史时不要把他拽回来
+  const handleScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    stickToBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+  };
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const el = scrollRef.current;
+    if (!el || !stickToBottomRef.current) return;
+    // 直接落到底，不用 smooth：流式期间每个 delta 都会重触发一次平滑滚动，
+    // 动画被反复打断正是"页面一直往上抽动"的来源
+    el.scrollTop = el.scrollHeight;
   }, [messages]);
 
   const onSubmit = (e: React.FormEvent) => {
@@ -60,53 +171,6 @@ export default function ChatPage() {
     return typeof m.content === 'string' ? m.content : '';
   };
 
-  const getMessageContent = (message: any, streaming = false) => {
-    if (message.parts) {
-      const fullText = message.parts
-        .filter((part: any) => part.type === 'text')
-        .map((part: any) => part.text)
-        .join('');
-      const toolCalls = message.parts.filter((part: any) => part.type === 'tool-call');
-      const toolResults = message.parts.filter((part: any) => part.type === 'tool-result');
-
-      return (
-        <div>
-          <div className="prose prose-sm max-w-none break-words dark:prose-invert">
-            <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
-              {fullText}
-            </ReactMarkdown>
-            {streaming && (
-              <div className="flex items-center gap-1 mt-1.5">
-                <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-              </div>
-            )}
-          </div>
-          {toolCalls.length > 0 && (
-            <div className="text-xs text-slate-400 dark:text-slate-500 mt-1.5">
-              ⚙️ 已调用 {toolCalls.length} 个工具{toolResults.length > 0 ? ` · ${toolResults.length} 个已返回` : ''}
-            </div>
-          )}
-        </div>
-      );
-    }
-    return (
-      <div className="prose prose-sm max-w-none break-words dark:prose-invert">
-        <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
-          {message.content || ''}
-        </ReactMarkdown>
-        {streaming && (
-          <div className="flex items-center gap-1 mt-1.5">
-            <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-            <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-            <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-          </div>
-        )}
-      </div>
-    );
-  };
-
   const isLoading = status === 'submitted' || status === 'streaming';
 
   // 只有助手消息还没有任何文字输出时才显示思考框，避免与流式输出框并存
@@ -127,7 +191,12 @@ export default function ChatPage() {
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto scroll-smooth">
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto"
+        style={{ overflowAnchor: 'none' }}
+      >
         <div className="max-w-3xl mx-auto px-6 py-6 space-y-5">
           {messages.length === 0 && (
             <div className="flex flex-col items-center justify-center text-center mt-20 animate-fade-in">
@@ -157,7 +226,7 @@ export default function ChatPage() {
               </p>
 
               <div className="flex flex-wrap gap-2.5 justify-center">
-                {['帮我调研新能源汽车市场', '潜水OW考证需要准备什么', '写一份竞品分析报告'].map((s) => (
+                {['帮我调研新能源汽车市场', '潜水OW考证需要准备什么', '做一份竞品分析报告'].map((s) => (
                   <button
                     key={s}
                     onClick={() => setInput(s)}
@@ -171,9 +240,13 @@ export default function ChatPage() {
           )}
 
           {messages.map((message) => {
+            const text = getStreamedText(message);
             // 流式中尚未产出文字的空助手消息不渲染，交给思考框占位，避免出现两个框
-            if (message.role === 'assistant' && isLoading && getStreamedText(message).trim() === '') return null;
+            if (message.role === 'assistant' && isLoading && text.trim() === '') return null;
             const isStreamingThis = isLoading && message.role === 'assistant' && lastMessage?.id === message.id;
+            const parts = (message.parts || []) as any[];
+            const toolCalls = parts.filter((p) => p.type === 'tool-call').length;
+            const toolResults = parts.filter((p) => p.type === 'tool-result').length;
             return (
             <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`}>
               {message.role !== 'user' && (
@@ -186,7 +259,12 @@ export default function ChatPage() {
                     : 'bg-white/70 dark:bg-slate-800/60 backdrop-blur-sm border border-slate-200/50 dark:border-slate-700/50 text-slate-800 dark:text-slate-200 shadow-sm'
                 }`}
               >
-                {getMessageContent(message, isStreamingThis)}
+                <MarkdownBody
+                  text={text}
+                  streaming={isStreamingThis}
+                  toolCalls={toolCalls}
+                  toolResults={toolResults}
+                />
               </div>
               {message.role === 'user' && (
                 <div className="w-8 h-8 rounded-xl bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-400 dark:text-slate-500 text-xs font-medium shrink-0 ml-3 mt-0.5">U</div>
@@ -200,15 +278,13 @@ export default function ChatPage() {
               <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-400 to-indigo-500 flex items-center justify-center text-white text-xs font-medium shrink-0 mt-0.5 shadow-sm">AI</div>
               <div className="bg-white/70 dark:bg-slate-800/60 backdrop-blur-sm border border-slate-200/50 dark:border-slate-700/50 rounded-2xl px-4 py-3 shadow-sm">
                 <div className="flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                  <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                  <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                  <ThinkingDots />
                   <span className="text-sm text-slate-400 dark:text-slate-500 ml-1.5">AI 正在思考...</span>
                 </div>
               </div>
             </div>
           )}
-          <div ref={messagesEndRef} />
+          <div className="h-1" />
         </div>
       </div>
 
